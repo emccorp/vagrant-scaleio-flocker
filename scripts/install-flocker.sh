@@ -1,51 +1,36 @@
 #!/bin/bash
 
-# Installs Flocker from Source
-USER=""
-SIO_PLUGIN="https://github.com/emccorp/scaleio-flocker-driver"
-FLOCKER_SRC="https://github.com/ClusterHQ/flocker"
+yum install -y --nogpgcheck https://s3.amazonaws.com/archive.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
+yum install -y --nogpgcheck https://s3.amazonaws.com/clusterhq-archive/centos/clusterhq-release$(rpm -E %dist).noarch.rpm
+yum install -y clusterhq-flocker-node
+# Device mapper Base isnt exported with old version, need to update.
+yum update -y device-mapper-libs
 
-FLOCKER_SRC_DIR="/opt/flocker/flocker"
-PLUGIN_SRC_DIR="/opt/flocker/scaleio-flocker-driver"
+if selinuxenabled; then setenforce 0; fi
+test -e /etc/selinux/config && sed --in-place='.preflocker' 's/^SELINUX=.*$/SELINUX=disabled/g' /etc/selinux/config
 
-git clone $FLOCKER_SRC $FLOCKER_SRC_DIR
-# Comment out until public
-#git clone $PLUGIN_SRC $PLUGIN_SRC_DIR
-
-pip install virtualenv
-
-# we actually dont want this, because it make it impossible
-# for interactive sessions of flocker to know about the venv
-# virtualenv venv && source venv/bin/activate
-
-pip install --upgrade  eliot
-pip install --upgrade  machinist
-pip install --upgrade pyyaml
-pip install bitmath
-pip install service_identity
-yum -yy install openssl openssl-devel libffi-devel
-cd $SRC_DIR && python $SRC_DIR/setup.py install
-pip install -qq -e .[dev]
-
-# ScaleIO Driver needs scaleio-py
-# eventually will be pip installable
 cd /opt/flocker
 git clone https://github.com/swevm/scaleio-py.git
 cd scaleio-py
 python setup.py install
 
-# Install ScaleIO Driver
-# (Comment out until public)
-#cd /opt/flocker/scaleio-flocker-driver
-#python setup.py install
+SIO_PLUGIN="https://github.com/emccorp/scaleio-flocker-driver"
+PLUGIN_SRC_DIR="/opt/flocker/scaleio-flocker-driver"
 
-# scaleio-py instals 2.5.1, flocker can't use over 2.5.0
-pip uninstall requests
+# Comment out until public
+git clone $PLUGIN_SRC $PLUGIN_SRC_DIR
+
+# Install ScaleIO Driver
+cd /opt/flocker/scaleio-flocker-driver
+python setup.py install
+
+# scaleio-py might install 2.5.1, flocker can't use over 2.5.0
+pip uninstall 'requests==2.5.1'
 pip install 'requests==2.4.3'
 
-# flocker specific directory
-mkdir /etc/flocker
-chmod 0700 /etc/flocker
+mkdir -p /var/opt/flocker
+truncate --size 10G /var/opt/flocker/pool-vdev
+zpool create flocker /var/opt/flocker/pool-vdev
 
 # You still need to create node certs and API
 # user certs manually.
@@ -53,16 +38,24 @@ chmod 0700 /etc/flocker
 # 5  cp 132ebcea-b19b-4452-8e4d-b59754a56c63.crt /etc/flocker/node.crt
 # 6  cp 132ebcea-b19b-4452-8e4d-b59754a56c63.key /etc/flocker/node.key
 # 7  flocker-ca create-api-certificate user
+cd /etc/flocker/
 if [ "$HOSTNAME" = tb.scaleio.local ]; then
     printf '%s\n' "on the tb host"
-    cd /opt/flocker/flocker/
     flocker-ca initialize mycluster
     flocker-ca create-control-certificate tb.scaleio.local
     cp control-tb.scaleio.local.crt /etc/flocker/control-service.crt
     cp control-tb.scaleio.local.key /etc/flocker/control-service.key
     cp cluster.crt /etc/flocker/cluster.crt
     chmod 0600 /etc/flocker/control-service.key
-    
+fi
+
+# Create Node Certs
+flocker-ca create-node-certificate
+ls -1 . | egrep '[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?.crt' | xargs cp -t /etc/flcoker/node.crt
+ls -1 . | egrep '[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?.key' | xargs cp -t /etc/flcoker/node.key
+
+# Create user certs
+flocker-ca create-api-certificate user
 
 # Flocker ports need to be open
 systemctl enable firewalld
@@ -81,6 +74,7 @@ firewall-cmd --permanent --zone=public --add-port=22/tcp
 firewall-cmd --reload
 
 # Docker needs to reload iptables after this.
+enable docker.service
 service docker restart
 
 # Add insecure private key for access

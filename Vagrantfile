@@ -8,8 +8,6 @@
 vagrantbox="chef/centos-7.0"
 
 # vagrant box url
-#vagrantboxurl="https://github.com/2creatives/vagrant-centos/releases/download/v6.5.3/centos65-x86_64-20140116.box"
-#vagrantboxurl="https://f0fff3908f081cb6461b407be80daf97f07ac418.googledrive.com/host/0BwtuV7VyVTSkUG1PM3pCeDJ4dVE/centos7.box"
 vagrantboxurl="chef/centos-7.0"
 
 # scaleio admin password
@@ -101,6 +99,7 @@ Vagrant.configure("2") do |config|
       node_config.vm.provision "shell" do |s|
         s.path = "scripts/centos-7-flocker.sh"
       end
+      node_config.vm.provision :reload
       node_config.vm.provision "shell" do |s|
         s.path = "scripts/install-flocker.sh"
       end
