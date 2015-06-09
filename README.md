@@ -31,6 +31,11 @@ Copy the certs (if needed) into source/certs
 cp EMCSSL.crt EMCCA.crt certs/
 ```
 
+Install Vagrant Reload Provisioner 
+```
+$ vagrant plugin install vagrant-reload
+```
+
 # Start vagrant
 ```
 vagrant up
