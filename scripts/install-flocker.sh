@@ -51,8 +51,8 @@ fi
 
 # Create Node Certs
 flocker-ca create-node-certificate
-ls -1 . | egrep '[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?.crt' | xargs cp -t /etc/flcoker/node.crt
-ls -1 . | egrep '[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?.key' | xargs cp -t /etc/flcoker/node.key
+ls -1 . | egrep '[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?.crt' | tr -d '\n' | xargs -0 -I file cp file /etc/flocker/node.crt
+ls -1 . | egrep '[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?-[A-Za-z0-9]*?.key' | tr -d '\n' | xargs -0 -I file cp file /etc/flocker/node.key
 
 # Create user certs
 flocker-ca create-api-certificate user
