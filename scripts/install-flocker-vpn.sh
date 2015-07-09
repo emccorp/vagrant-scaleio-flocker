@@ -21,17 +21,24 @@ firewall-cmd --reload
 mkdir /etc/flocker
 chmod 0700 /etc/flocker
 
-# Installs Flocker from ClusterHQ packages
-yum clean all
-yum install -y https://clusterhq-archive.s3.amazonaws.com/centos/clusterhq-release$(rpm -E %dist).noarch.rpm
-yum install -y clusterhq-flocker-node
-
-# Install flocker-cli and flocker-ca
+# Get 1.0.1 tarball
+mkdir /opts/flocker
 cd /opt/flocker
-yum install gcc python python-devel python-virtualenv libffi-devel openssl-devel
+wget https://github.com/ClusterHQ/flocker/archive/1.0.1pre1.tar.gz
+tar -zxvf 1.0.1pre1.tar.gz
+cd flocker-1.0.1pre1/
+
+# Installs Flocker 
+yum -yy install openssl openssl-devel libffi-devel python-devel gcc python-virtualenv
+cd /opt/flocker/flocker-1.0.1pre1/
 virtualenv --python=/usr/bin/python2.7 flocker-tutorial
-flocker-tutorial/bin/pip install --upgrade pip
-flocker-tutorial/bin/pip install https://clusterhq-archive.s3.amazonaws.com/python/Flocker-1.0.1-py2-none-any.whl
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/pip install --upgrade pip
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/pip install --upgrade  eliot
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/pip install --upgrade  machinist
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/pip install --upgrade pyyaml
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/pip install bitmath
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/pip install service_identity
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/python setup.py install
 
 # Constants for where code lives
 SIO_PLUGIN="https://github.com/emccorp/scaleio-flocker-driver"
@@ -42,7 +49,7 @@ git clone $SIO_PLUGIN $PLUGIN_SRC_DIR
 
 # Install ScaleIO Driver
 cd /opt/flocker/scaleio-flocker-driver
-../flocker-tutorial/bin/python setup.py install
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/python setup.py install
 
 # Add mdm (gateway) node to /etc/hosts
 echo "192.168.50.12  mdm1.scaleio.local mdm1" >> /etc/hosts
@@ -97,14 +104,11 @@ service docker restart
 
 #Install flocker-docker-plugin
 yum -y install gcc
-yum install -y python-pip build-essential libssl-devel libffi-devel python-devel
-pip install git+https://github.com/clusterhq/flocker-docker-plugin.git
+yum install -y python-pip build-essential
+/opt/flocker/flocker-1.0.1pre1/flocker-tutorial/bin/pip install git+https://github.com/clusterhq/flocker-docker-plugin.git
 
 systemctl stop docker
 rm -Rf /var/lib/docker
-
-#curl -O -sSL https://get.docker.com/rpm/1.7.0/centos-6/RPMS/x86_64/docker-engine-1.7.0-1.el6.x86_64.rpm
-#yum -y localinstall --nogpgcheck docker-engine-1.7.0-1.el6.x86_64.rpm
 
 echo 'Performing 10MB download of Docker experimental build'
 yum install -y wget
@@ -156,8 +160,9 @@ if [ "$HOSTNAME" = mdm2.scaleio.local ]; then
     WantedBy=multi-user.target' >> /etc/systemd/system/flocker-docker-plugin.service
 fi
 
+# Scp node.key's to nodes
+# Start flocker services
 # Start the flocker-docker-plugin
-#systemctl restart flocker-docker-plugin   
 
 # Add insecure private key for access
 mkdir /root/.ssh
